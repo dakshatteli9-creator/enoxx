@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ENoxx Gaming</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101b26;font-family:system-ui,Arial;color:#fff;touch-action:none}
+#game{display:block;width:100vw;height:100dvh;background:#78b86b}
+#hud{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.pill{background:#102536d9;border:1px solid #ffffff33;border-radius:14px;padding:8px 12px;font-weight:700;font-size:14px}
+#hint{position:fixed;top:58px;left:50%;transform:translateX(-50%);background:#102536d9;padding:7px 12px;border-radius:12px;font-size:12px;white-space:nowrap;pointer-events:none}
+#controls{position:fixed;bottom:18px;left:0;right:0;display:flex;justify-content:space-between;align-items:end;padding:0 20px;pointer-events:none}
+#pad{width:142px;height:142px;border-radius:50%;background:#10253655;border:2px solid #ffffff88;position:relative;pointer-events:auto;touch-action:none}
+#stick{width:54px;height:54px;border-radius:50%;background:#e9f5ffcc;border:2px solid #fff;position:absolute;left:42px;top:42px}
+#actions{display:flex;gap:12px;pointer-events:auto}
+.action{width:68px;height:68px;border-radius:50%;border:2px solid #fff;background:#102536cc;color:white;font-weight:800;font-size:12px}
+#overlay{position:fixed;inset:0;background:linear-gradient(#0b1b2add,#102536ee);display:flex;align-items:center;justify-content:center;padding:24px}
+.panel{max-width:440px;text-align:center;background:#172e40;border:1px solid #ffffff33;border-radius:24px;padding:26px;box-shadow:0 20px 70px #0008}
+h1{margin:0 0 8px;font-size:32px}p{color:#d5e4ed;line-height:1.5}.start{border:0;border-radius:14px;padding:13px 24px;background:#9ce36c;color:#142313;font-weight:900;font-size:16px}
+.small{font-size:12px;color:#b9cbd6}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud"><div class="pill">🌿 ENoxx Gaming</div><div class="pill" id="score">💎 0 / 12</div></div>
+<div id="hint">Explore the island • collect all 12 crystals</div>
+<div id="controls"><div id="pad"><div id="stick"></div></div><div id="actions"><button class="action" id="mapBtn">MAP</button></div></div>
+<div id="overlay"><div class="panel"><h1>🌄 ENoxx Gaming</h1><p>Welcome to Green Valley! Explore a little open world, discover hidden paths and collect 12 glowing crystals.</p><p><b>How to play</b><br>Use the on-screen joystick or arrow keys / WASD to move. Explore the island and find all the crystals.</p><button class="start" id="start">START ADVENTURE</button><p class="small">Free mini-game • works in your mobile browser</p></div></div>
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+let W,H,dpr,player={x:500,y:500},camera={x:0,y:0},keys={},joy={x:0,y:0},score=0,started=false,map=false;
+const world={w:1800,h:1400};
+function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=W*dpr;canvas.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',resize);resize();
+let trees=[],rocks=[],gems=[];
+let seed=2026;function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
+for(let i=0;i<125;i++){let x=rand()*world.w,y=rand()*world.h;if(Math.hypot(x-500,y-500)>100)trees.push({x,y,r:13+rand()*13})}
+for(let i=0;i<30;i++)rocks.push({x:rand()*world.w,y:rand()*world.h,r:9+rand()*12});
+for(let i=0;i<12;i++){let a=(i/12)*Math.PI*2;gems.push({x:500+Math.cos(a)*(230+(i%3)*90),y:500+Math.sin(a)*(190+(i%4)*70),got:false})}
+function drawTree(x,y,r){ctx.fillStyle='#68452d';ctx.fillRect(x-4,y,8,13);ctx.fillStyle='#246b43';ctx.beginPath();ctx.arc(x,y-5,r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#3b9153';ctx.beginPath();ctx.arc(x-r*.25,y-r*.4,r*.55,0,Math.PI*2);ctx.fill()}
+function draw(){
+ ctx.clearRect(0,0,W,H);camera.x=Math.max(0,Math.min(world.w-W,player.x-W/2));camera.y=Math.max(0,Math.min(world.h-H,player.y-H/2));
+ ctx.save();ctx.translate(-camera.x,-camera.y);
+ ctx.fillStyle='#78b86b';ctx.fillRect(0,0,world.w,world.h);
+ // winding sandy trail
+ ctx.strokeStyle='#d6c58a';ctx.lineWidth=74;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(120,1180);ctx.bezierCurveTo(420,1050,390,780,720,760);ctx.bezierCurveTo(1040,740,940,400,1300,330);ctx.bezierCurveTo(1490,290,1530,160,1710,130);ctx.stroke();
+ // pond
+ ctx.fillStyle='#4aa6c5';ctx.beginPath();ctx.ellipse(1390,1000,210,135,-.2,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#a5e5e9';ctx.lineWidth=5;ctx.stroke();
+ // grass details
+ for(let x=20;x<world.w;x+=90)for(let y=20;y<world.h;y+=90){ctx.fillStyle='#5aa85e';ctx.fillRect(x+((y*7)%23),y+((x*3)%19),3,7)}
+ rocks.forEach(o=>{ctx.fillStyle='#7b8581';ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,7);ctx.fill()});
+ trees.forEach(t=>drawTree(t.x,t.y,t.r));
+ gems.forEach(g=>{if(!g.got){ctx.save();ctx.translate(g.x,g.y);ctx.rotate(Math.PI/4);ctx.fillStyle='#8cf5ff';ctx.shadowColor='#c8ffff';ctx.shadowBlur=18;ctx.fillRect(-9,-9,18,18);ctx.restore()}});
+ // player
+ ctx.fillStyle='#193b55';ctx.beginPath();ctx.arc(player.x,player.y+7,13,0,7);ctx.fill();ctx.fillStyle='#f2c69b';ctx.beginPath();ctx.arc(player.x,player.y-8,10,0,7);ctx.fill();ctx.fillStyle='#f4f7fa';ctx.fillRect(player.x-10,player.y-1,20,14);
+ if(map){ctx.fillStyle='#0c1c2acc';ctx.fillRect(camera.x+W-160,camera.y+18,140,110);ctx.fillStyle='#9ce36c';ctx.fillText('YOU',camera.x+W-145,camera.y+42);ctx.fillStyle='#8cf5ff';gems.filter(g=>!g.got).forEach(g=>ctx.fillRect(camera.x+W-150+g.x/world.w*120,camera.y+52+g.y/world.h*65,3,3))}
+ ctx.restore();
+ // collision-free collecting
+ gems.forEach(g=>{if(!g.got&&Math.hypot(player.x-g.x,player.y-g.y)<27){g.got=true;score++;document.getElementById('score').textContent=`💎 ${score} / 12`;if(score===12){document.getElementById('overlay').style.display='flex';document.querySelector('.panel').innerHTML='<h1>🏆 Island Explorer!</h1><p>You found all 12 crystals. Amazing exploring!</p><button class="start" onclick="location.reload()">PLAY AGAIN</button>'}}});
+}
+function loop(){if(started){let dx=(keys.ArrowRight||keys.d?1:0)-(keys.ArrowLeft||keys.a?1:0)+joy.x,dy=(keys.ArrowDown||keys.s?1:0)-(keys.ArrowUp||keys.w?1:0)+joy.y;let m=Math.hypot(dx,dy)||1;player.x=Math.max(20,Math.min(world.w-20,player.x+dx/m*3.2));player.y=Math.max(20,Math.min(world.h-20,player.y+dy/m*3.2));draw()}requestAnimationFrame(loop)}loop();
+addEventListener('keydown',e=>{keys[e.key]=true;if(e.key.startsWith('Arrow'))e.preventDefault()});addEventListener('keyup',e=>keys[e.key]=false);
+const pad=document.getElementById('pad'),stick=document.getElementById('stick');let active=false;
+function move(e){let r=pad.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,lim=43,m=Math.hypot(dx,dy)||1;if(m>lim){dx=dx/m*lim;dy=dy/m*lim}joy.x=dx/lim;joy.y=dy/lim;stick.style.left=(44+dx)+'px';stick.style.top=(44+dy)+'px'}
+pad.addEventListener('pointerdown',e=>{active=true;pad.setPointerCapture(e.pointerId);move(e)});pad.addEventListener('pointermove',e=>{if(active)move(e)});function stop(){active=false;joy={x:0,y:0};stick.style.left='42px';stick.style.top='42px'}pad.addEventListener('pointerup',stop);pad.addEventListener('pointercancel',stop);
+document.getElementById('mapBtn').onclick=()=>map=!map;document.getElementById('start').onclick=()=>{started=true;document.getElementById('overlay').style.display='none'};
+</script></body></html>
